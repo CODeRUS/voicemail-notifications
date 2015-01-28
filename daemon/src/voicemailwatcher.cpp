@@ -1,5 +1,6 @@
 #include "voicemailwatcher.h"
 #include <MRemoteAction>
+#include <QDebug>
 
 VoicemailWatcher::VoicemailWatcher(QObject *parent) :
     QObject(parent),
@@ -10,8 +11,12 @@ VoicemailWatcher::VoicemailWatcher(QObject *parent) :
         QDBusConnection::sessionBus().registerObject("/", this, QDBusConnection::ExportScriptableSlots);
 
     if (!ready) {
+        qWarning() << "Bus already registered, exiting...";
         QCoreApplication::quit();
         return;
+    }
+    else {
+        qDebug() << "Bus registered successfully!";
     }
 
     voiceCallManagerIface.reset(new QDBusInterface("org.ofono", "/", "org.ofono.VoiceCallManager",
@@ -21,17 +26,35 @@ VoicemailWatcher::VoicemailWatcher(QObject *parent) :
 
     QOfonoManager* manager = new QOfonoManager(this);
     QStringList modems = manager->modems();
+    qDebug() << "Available modems:" << modems;
 
     if (modems.size() > 0) {
+        qDebug() << "Selecting modem:" << modems.first();
         messageWaiting->setModemPath(modems.first());
 
         if (messageWaiting->isValid()) {
+            qDebug() << "Connecting to signals";
             QObject::connect(messageWaiting.data(), SIGNAL(voicemailWaitingChanged(bool)), this, SLOT(onVoicemailWaitingChanged(bool)));
             QObject::connect(messageWaiting.data(), SIGNAL(voicemailMessageCountChanged(int)), this, SLOT(onVoicemailMessageCountChanged(int)));
             QObject::connect(messageWaiting.data(), SIGNAL(voicemailMailboxNumberChanged(QString)), this, SLOT(onVoicemailMailboxNumberChanged(QString)));
 
-            onVoicemailMessageCountChanged(messageWaiting->voicemailMessageCount());
+            qDebug() << "Object created successfully: " << messageWaiting->isReady();
+            qDebug() << "Voicemail waiting: " << messageWaiting->voicemailWaiting();
+            qDebug() << "Voicemail count: " << messageWaiting->voicemailMessageCount();
+            qDebug() << "Voicemail number: " << messageWaiting->voicemailMailboxNumber();
+
+            onVoicemailWaitingChanged(messageWaiting->voicemailWaiting());
         }
+        else {
+            qWarning() << "Object is not valid, exiting!";
+            ready = false;
+            return;
+        }
+    }
+    else {
+        qWarning() << "No modems found, exiting!";
+        ready = false;
+        return;
     }
 
     MNotification startup("custom", "Voicemail watcher ready", "Just to let you know");
@@ -46,6 +69,7 @@ bool VoicemailWatcher::getReady() const
 
 void VoicemailWatcher::notificationCallback()
 {
+    qDebug() << "notificationCallback";
     if (voiceCallManagerIface && messageWaiting) {
         voiceCallManagerIface->call("Dial", messageWaiting->voicemailMailboxNumber(), QString());
     }
@@ -53,11 +77,13 @@ void VoicemailWatcher::notificationCallback()
 
 void VoicemailWatcher::ping()
 {
+    qDebug() << "Ping received";
     return;
 }
 
 void VoicemailWatcher::exit()
 {
+    qDebug() << "Exit requested";
     MNotification shutdown("custom", "Voicemail watcher exiting", "Remote application requested exit");
     shutdown.publish();
 
@@ -66,19 +92,15 @@ void VoicemailWatcher::exit()
 
 void VoicemailWatcher::onVoicemailWaitingChanged(bool isWaiting)
 {
-    if (!isWaiting && oldNotification) {
-        if (oldNotification->isPublished()) {
-            oldNotification->remove();
-        }
-        oldNotification.reset();
-    }
-}
+    qDebug() << "onVoicemailWaitingChanged: " << isWaiting;
 
-void VoicemailWatcher::onVoicemailMessageCountChanged(int count)
-{
-    if (count > 0) {
+    if (isWaiting) {
         QString summary("New voicemail");
-        QString body = QString("You have %1 voicemail").arg(count);
+        QString body("You have new voicemail");
+        int count = messageWaiting->voicemailMessageCount();
+        if (count > 1) {
+            body = QString("You have %1 voicemails").arg(count);
+        }
 
         MNotification *notification;
         if (oldNotification) {
@@ -94,10 +116,22 @@ void VoicemailWatcher::onVoicemailMessageCountChanged(int count)
         notification->publish();
         oldNotification.reset(notification);
     }
+    else {
+        if (oldNotification && oldNotification->isPublished()) {
+            oldNotification->remove();
+        }
+        oldNotification.reset();
+    }
+}
+
+void VoicemailWatcher::onVoicemailMessageCountChanged(int count)
+{
+    qDebug() << "onVoicemailMessageCountChanged: " << count;
+    // do nothing yet
 }
 
 void VoicemailWatcher::onVoicemailMailboxNumberChanged(const QString &number)
 {
-    Q_UNUSED(number)
+    qDebug() << "onVoicemailMailboxNumberChanged: " << number;
     // do nothing yet
 }
