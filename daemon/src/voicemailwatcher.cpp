@@ -19,9 +19,6 @@ VoicemailWatcher::VoicemailWatcher(QObject *parent) :
         qDebug() << "Bus registered successfully!";
     }
 
-    voiceCallManagerIface.reset(new QDBusInterface("org.ofono", "/", "org.ofono.VoiceCallManager",
-                                                   QDBusConnection::systemBus(), this));
-
     messageWaiting.reset(new QOfonoMessageWaiting(this));
 
     QOfonoManager* manager = new QOfonoManager(this);
@@ -31,6 +28,9 @@ VoicemailWatcher::VoicemailWatcher(QObject *parent) :
     if (modems.size() > 0) {
         qDebug() << "Selecting modem:" << modems.first();
         messageWaiting->setModemPath(modems.first());
+
+        voiceCallManagerIface.reset(new QDBusInterface("org.ofono", modems.first(), "org.ofono.VoiceCallManager",
+                                                       QDBusConnection::systemBus(), this));
 
         if (messageWaiting->isValid()) {
             qDebug() << "Connecting to signals";
@@ -71,7 +71,7 @@ void VoicemailWatcher::notificationCallback()
 {
     qDebug() << "notificationCallback";
     if (voiceCallManagerIface && messageWaiting) {
-        voiceCallManagerIface->call("Dial", messageWaiting->voicemailMailboxNumber(), QString());
+        voiceCallManagerIface->call(QDBus::NoBlock, "Dial", messageWaiting->voicemailMailboxNumber(), QString());
     }
 }
 
