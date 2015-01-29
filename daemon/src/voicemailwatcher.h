@@ -2,11 +2,13 @@
 #define VOICEMAILWATCHER_H
 
 #include <QObject>
-#include <MNotification>
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <qofonomanager.h>
 #include <qofonomessagewaiting.h>
+#include <MGConfItem>
+
+#include "notification.h"
 
 class VoicemailWatcher : public QObject
 {
@@ -22,14 +24,18 @@ public slots:
     Q_SCRIPTABLE void exit();
 
 private slots:
+    void notificationClicked();
+    void notificationClosed(uint reason);
+
     void onVoicemailWaitingChanged(bool isWaiting);
     void onVoicemailMessageCountChanged(int count);
     void onVoicemailMailboxNumberChanged(const QString &number);
 
 private:
-    QScopedPointer<MNotification> oldNotification;
+    QScopedPointer<Notification> oldNotification;
     QScopedPointer<QOfonoMessageWaiting> messageWaiting;
     QScopedPointer<QDBusInterface> voiceCallManagerIface;
+    QScopedPointer<MGConfItem> dconf;
 
     bool ready;
 

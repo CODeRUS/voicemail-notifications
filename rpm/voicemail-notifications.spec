@@ -13,7 +13,7 @@ Name:       voicemail-notifications
 %{!?qtc_make:%define qtc_make make}
 %{?qtc_builddir:%define _builddir %qtc_builddir}
 Summary:    Voicemail notifications
-Version:    0.0.4
+Version:    0.0.5
 Release:    1
 Group:      Qt/Qt
 License:    LICENSE
@@ -59,6 +59,25 @@ rm -rf %{buildroot}
 desktop-file-install --delete-original       \
   --dir %{buildroot}%{_datadir}/applications             \
    %{buildroot}%{_datadir}/applications/*.desktop
+
+
+%pre
+if /sbin/pidof voicemail-daemon > /dev/null; then
+killall voicemail-daemon
+fi
+
+if /sbin/pidof voicemail-notifications > /dev/null; then
+killall voicemail-notifications
+fi
+
+%preun
+if /sbin/pidof voicemail-daemon > /dev/null; then
+killall voicemail-daemon
+fi
+
+if /sbin/pidof voicemail-notifications > /dev/null; then
+killall voicemail-notifications
+fi
 
 %files
 %defattr(-,root,root,-)

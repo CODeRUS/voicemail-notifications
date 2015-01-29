@@ -1,5 +1,4 @@
 #include "voicemailwatcher.h"
-#include <MRemoteAction>
 #include <QDebug>
 
 VoicemailWatcher::VoicemailWatcher(QObject *parent) :
@@ -32,6 +31,8 @@ VoicemailWatcher::VoicemailWatcher(QObject *parent) :
         voiceCallManagerIface.reset(new QDBusInterface("org.ofono", modems.first(), "org.ofono.VoiceCallManager",
                                                        QDBusConnection::systemBus(), this));
 
+        dconf.reset(new MGConfItem("/apps/voicemail-notifications/id", this));
+
         if (messageWaiting->isValid()) {
             qDebug() << "Connecting to signals";
             QObject::connect(messageWaiting.data(), SIGNAL(voicemailWaitingChanged(bool)), this, SLOT(onVoicemailWaitingChanged(bool)));
@@ -57,9 +58,14 @@ VoicemailWatcher::VoicemailWatcher(QObject *parent) :
         return;
     }
 
-    MNotification startup("custom", "Voicemail watcher ready", "Just to let you know");
-    startup.publish();
-
+    Notification *startup = new Notification(this);
+    startup->setCategory("custom");
+    startup->setSummary("Voicemail watcher ready");
+    startup->setBody("Just to let you know");
+    startup->setPreviewSummary(startup->summary());
+    startup->setPreviewBody(startup->body());
+    startup->setItemCount(1);
+    startup->publish();
 }
 
 bool VoicemailWatcher::getReady() const
@@ -84,10 +90,38 @@ void VoicemailWatcher::ping()
 void VoicemailWatcher::exit()
 {
     qDebug() << "Exit requested";
-    MNotification shutdown("custom", "Voicemail watcher exiting", "Remote application requested exit");
-    shutdown.publish();
+
+    Notification *shutdown = new Notification(this);
+    shutdown->setCategory("custom");
+    shutdown->setSummary("Voicemail watcher exiting");
+    shutdown->setBody("Remote application requested exit");
+    shutdown->setPreviewSummary(shutdown->summary());
+    shutdown->setPreviewBody(shutdown->body());
+    shutdown->setItemCount(1);
+    shutdown->publish();
 
     QCoreApplication::quit();
+}
+
+void VoicemailWatcher::notificationClicked()
+{
+    Notification *notification = qobject_cast<Notification*>(sender());
+    if (notification) {
+        qDebug() << "notificationClicked" << notification->summary();
+    }
+}
+
+void VoicemailWatcher::notificationClosed(uint reason)
+{
+    Notification *notification = qobject_cast<Notification*>(sender());
+    if (notification) {
+        qDebug() << "notificationClosed" << notification->summary() << notification->replacesId() << reason;
+        if (notification->replacesId() == dconf->value(0).toUInt() && notification->replacesId() != 0) {
+            dconf->set(0);
+        }
+    }
+
+    onVoicemailWaitingChanged(messageWaiting->voicemailWaiting());
 }
 
 void VoicemailWatcher::onVoicemailWaitingChanged(bool isWaiting)
@@ -102,25 +136,51 @@ void VoicemailWatcher::onVoicemailWaitingChanged(bool isWaiting)
             body = QString("You have %1 voicemails").arg(count);
         }
 
-        MNotification *notification;
+        Notification *notification;
         if (oldNotification) {
             notification = oldNotification.take();
             notification->setBody(body);
+            notification->setPreviewBody(body);
         }
         else {
-            notification = new MNotification("x-nemo.messaging.voicemail", summary, body);
-            notification->setImage("icon-lock-voicemail");
-            MRemoteAction action("org.coderus.voicemailwatcher", "/", "org.coderus.voicemailwatcher", "notificationCallback");
-            notification->setAction(action);
+            notification = new Notification(this);
+            notification->setCategory("x-nemo.messaging.voicemail");
+            notification->setSummary(summary);
+            notification->setBody(body);
+            notification->setPreviewSummary(summary);
+            notification->setPreviewBody(body);
+            notification->setItemCount(1);
+            QVariantList remoteActions;
+            QVariantMap action1;
+            action1["name"] = "call";
+            action1["displayName"] = "Call to mailbox";
+            action1["icon"] = "icon-lock-voicemail";
+            action1["service"] = "org.coderus.voicemailwatcher";
+            action1["path"] = "/";
+            action1["iface"] = "org.coderus.voicemailwatcher";
+            action1["method"] = "notificationCallback";
+            remoteActions.append(action1);
+            notification->setRemoteActions(remoteActions);
+            QObject::connect(notification, SIGNAL(closed(uint)), this, SLOT(notificationClosed(uint)));
+
+            uint id = dconf->value(0).toUInt();
+            if (id > 0) {
+                notification->setReplacesId(id);
+            }
+
+            notification->publish();
+
+            dconf->set(notification->replacesId());
         }
         notification->publish();
         oldNotification.reset(notification);
     }
     else {
-        if (oldNotification && oldNotification->isPublished()) {
-            oldNotification->remove();
+        if (oldNotification && oldNotification->replacesId() > 0) {
+            oldNotification->close();
         }
         oldNotification.reset();
+        dconf->set(0);
     }
 }
 

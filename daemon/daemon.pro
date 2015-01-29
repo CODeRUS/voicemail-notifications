@@ -8,10 +8,14 @@ PKGCONFIG += mlite5
 INCLUDEPATH += /usr/include/mlite5
 
 SOURCES += \
+    src/notificationmanagerproxy.cpp \
+    src/notification.cpp \
     src/main.cpp \
     src/voicemailwatcher.cpp
 
 HEADERS += \
+    src/notificationmanagerproxy.h \
+    src/notification.h \
     src/voicemailwatcher.h
 
 dbus.files = dbus/org.coderus.voicemailwatcher.service
