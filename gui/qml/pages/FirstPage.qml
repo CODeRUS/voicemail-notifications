@@ -1,16 +1,11 @@
 import QtQuick 2.1
 import Sailfish.Silica 1.0
-import org.coderus.voicemailnotifications 1.0
 
 Page {
     id: page
     SilicaFlickable {
         id: flick
-        anchors {
-            fill: page
-            leftMargin: Theme.paddingLarge
-            rightMargin: Theme.paddingLarge
-        }
+        anchors.fill: page
         contentHeight: content.height
 
         PullDownMenu {
@@ -30,6 +25,7 @@ Page {
             }
 
             Label {
+                x: Theme.paddingLarge
                 text: "Service autostart: " + (helper.serviceEnabled ? "enabled" : "disabled")
             }
 
@@ -53,9 +49,5 @@ Page {
         }
 
         VerticalScrollDecorator {}
-    }
-
-    SystemdHelper {
-        id: helper
     }
 }
