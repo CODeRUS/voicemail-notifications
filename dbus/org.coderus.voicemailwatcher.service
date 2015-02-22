@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.coderus.voicemailwatcher
+Exec=/usr/bin/invoker -s --type=silica-qt5 /usr/bin/voicemail-notifications
+SystemdService=voicemail-notifications.service

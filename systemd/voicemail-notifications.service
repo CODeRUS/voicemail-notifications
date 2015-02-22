@@ -1,11 +1,11 @@
 [Unit]
-Description=Voicemail
+Description=Voicemail notifications
 Requires=lipstick.service
 After=lipstick.service
 
 [Service]
 Type=dbus
-ExecStart=/usr/bin/voicemail-daemon
+ExecStart=/usr/bin/invoker -s --type=silica-qt5 /usr/bin/voicemail-notifications
 BusName=org.coderus.voicemailwatcher
 
 [Install]

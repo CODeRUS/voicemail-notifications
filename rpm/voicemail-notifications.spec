@@ -13,12 +13,13 @@ Name:       voicemail-notifications
 %{!?qtc_make:%define qtc_make make}
 %{?qtc_builddir:%define _builddir %qtc_builddir}
 Summary:    Voicemail notifications
-Version:    0.1.0
+Version:    0.5.0
 Release:    1
 Group:      Qt/Qt
-License:    WTFPL
-URL:        https://github.com/CODeRUS/voicemail-notifications
+License:    LICENSE
+URL:        http://example.org/
 Source0:    %{name}-%{version}.tar.bz2
+Source100:  voicemail-notifications.yaml
 Requires:   sailfishsilica-qt5 >= 0.10.9
 BuildRequires:  pkgconfig(sailfishapp) >= 1.0.2
 BuildRequires:  pkgconfig(Qt5Core)
@@ -27,7 +28,7 @@ BuildRequires:  pkgconfig(Qt5Quick)
 BuildRequires:  desktop-file-utils
 
 %description
-Simple daemon and settings gui to show voicemail notifications
+Short description of my SailfishOS Application
 
 
 %prep
@@ -40,7 +41,8 @@ Simple daemon and settings gui to show voicemail notifications
 # >> build pre
 # << build pre
 
-%qtc_qmake5 
+%qtc_qmake5  \
+    VERSION=%{version}
 
 %qtc_make %{?_smp_mflags}
 
@@ -54,38 +56,51 @@ rm -rf %{buildroot}
 %qmake5_install
 
 # >> install post
+mkdir -p %{buildroot}/usr/lib/systemd/user/post-user-session.target.wants
+ln -s ../voicemail-notifications.service %{buildroot}/usr/lib/systemd/user/post-user-session.target.wants/voicemail-notifications.service
 # << install post
+
+%pre
+# >> pre
+systemctl-user stop voicemail-notifications.service
+
+if /sbin/pidof voicemail-notifications > /dev/null; then
+killall voicemail-notifications || true
+fi
+# << pre
+
+%preun
+# >> preun
+if [ $1 -eq 0 ]
+then
+DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/100000/dbus/user_bus_socket /bin/dbus-send --type=method_call --dest=org.coderus.voicemailwatcher / org.coderus.voicemailwatcher.clearAndExit
+fi
+
+systemctl-user stop voicemail-notifications.service
+
+if /sbin/pidof voicemail-notifications > /dev/null; then
+killall voicemail-notifications || true
+fi
+# << preun
+
+%post
+# >> post
+systemctl-user restart voicemail-notifications.service
+# << post
 
 desktop-file-install --delete-original       \
   --dir %{buildroot}%{_datadir}/applications             \
    %{buildroot}%{_datadir}/applications/*.desktop
 
-
-%pre
-if /sbin/pidof voicemail-daemon > /dev/null; then
-killall voicemail-daemon
-fi
-
-if /sbin/pidof voicemail-notifications > /dev/null; then
-killall voicemail-notifications
-fi
-
-%preun
-if /sbin/pidof voicemail-daemon > /dev/null; then
-killall voicemail-daemon
-fi
-
-if /sbin/pidof voicemail-notifications > /dev/null; then
-killall voicemail-notifications
-fi
-
 %files
 %defattr(-,root,root,-)
 %{_bindir}
-%{_datadir}/voicemail-notifications
-%{_datadir}/applications/voicemail-notifications.desktop
-%{_datadir}/icons/hicolor/86x86/apps/voicemail-notifications.png
-/usr/share/dbus-1/services/org.coderus.voicemailwatcher.service
-/usr/lib/systemd/user/voicemail-daemon.service
+%{_datadir}/%{name}
+%{_datadir}/applications/%{name}.desktop
+%{_datadir}/icons/hicolor/86x86/apps/%{name}.png
+%{_datadir}/dbus-1/services/org.coderus.voicemailwatcher.service
+%{_libdir}/systemd/user/*.service
+%{_libdir}/systemd/user/post-user-session.target.wants/*.service
+%{_datadir}/lipstick/notificationcategories
 # >> files
 # << files

@@ -1,4 +1,0 @@
-[D-BUS Service]
-Name=org.coderus.voicemailwatcher
-Exec=/usr/bin/voicemail-daemon
-User=nemo

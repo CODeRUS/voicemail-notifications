@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+X-Nemo-Application-Type=silica-qt5
+Exec=voicemail-notifications
+Icon=voicemail-notifications
+Name=Voicemail
+X-Maemo-Service=org.coderus.voicemailwatcher
+X-Maemo-Object-Path=/
+X-Maemo-Method=org.coderus.voicemailwatcher.showUI
